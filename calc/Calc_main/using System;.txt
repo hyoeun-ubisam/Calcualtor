@@ -1,0 +1,96 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Calcualtor.Utils
+{
+    static class Log
+    {
+        public static bool Enabled { get; set; } = true;     
+        public static bool WithTimestamp { get; set; } = true; 
+
+        static readonly object _lock = new();
+        static TextWriter? _file;   
+
+        // 1. 파일이 두 번 생성되는 문제 방지: 이미 열려 있으면 재생성하지 않음
+        public static void InitFile(string? filePath = null, bool append = true)
+        {
+            lock (_lock)
+            {
+                if (_file != null) return; // 이미 열려 있으면 재생성하지 않음
+
+                var dir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+
+                _file = new StreamWriter(filePath, append, Encoding.UTF8){AutoFlush = true};
+            }
+        }
+
+        // 2. JSON 로그의 한글/특수문자 유니코드 문제 해결: Encoder 설정 추가
+        static void CalJson(object obj)
+        {
+            lock (_lock)
+            {
+                if (!Enabled) return;
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping // 한글, 특수문자 그대로 출력
+                };
+                string json = JsonSerializer.Serialize(obj, options);
+                Debug.WriteLine(json);
+                _file?.WriteLine(json); 
+            }
+        }
+
+        public static void Request(string op, string num1, string num2)
+        {
+            CalJson(new
+            {
+                type = "요청",
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                op,
+                num1,
+                num2
+            });
+        }
+
+        public static void Response(string result)
+        {
+            CalJson(new
+            {
+                type = "응답",
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                result
+            });
+        }
+
+        public static void Error(string error, int? status = null)
+        {
+            CalJson(new
+            {
+                type = "error",
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                error,
+                status
+            });
+        }
+
+        public static void Meta(string url, int statusCode, string? contentType)
+        {
+            CalJson(new
+            {
+                type = "meta",
+                timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                url,
+                status = statusCode,
+                contentType
+            });
+        }
+    }
+}
+
