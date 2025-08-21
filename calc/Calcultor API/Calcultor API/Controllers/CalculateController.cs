@@ -2,8 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
 using System.Net.Http.Headers;
-using Calcultor_API.Utils;    // 네 프로젝트의 실제 네임스페이스에 맞게 조정하세요
-using Calcultor_API.Models;   // 네 프로젝트의 실제 네임스페이스에 맞게 조정하세요
+using Calcultor_API.Utils;   
+using Calcultor_API.Models;   
 using Microsoft.Extensions.Logging;
 using System;
 
@@ -20,13 +20,10 @@ namespace Calcultor_API.Controllers
 
         public CalculateController(ILogger<CalculateController> logger) => _logger = logger;
 
-        // ===== 공통: 인증 확인 =====
+        //인증 확인
         private bool TryAuthorize(out IActionResult? unauthorized)
         {
             unauthorized = null;
-
-            // Health 같은 익명 엔드포인트를 호출한 경우(AllowAnonymous로 처리하는 편이 안전)
-            // 이 메서드는 인증이 필요한 엔드포인트에서만 호출되도록 사용하세요.
 
             if (!Request.Headers.TryGetValue("Authorization", out var authValue) ||
                 !AuthenticationHeaderValue.TryParse(authValue, out var authHeader) ||
@@ -44,11 +41,11 @@ namespace Calcultor_API.Controllers
             return true;
         }
 
-        // 숫자 파싱 (culture-안전)
+        // 숫자 파싱 
         private static bool TryParseInvariant(string? s, out double value) =>
             double.TryParse(s, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out value);
 
-        // ===== 실제 연산 공통 처리 =====
+        // 연산 공통 처리 
         private IActionResult DoOpCore(string endpoint, string symbol, string? num1Str, string? num2Str)
         {
             if (!TryAuthorize(out var unauth)) return unauth!;
@@ -75,7 +72,7 @@ namespace Calcultor_API.Controllers
 
                 var result = r.ToString(CultureInfo.InvariantCulture);
 
-                // 로깅(예: 콘솔/파일)
+                // 로그 기록(응답, 요청)
                 ServerLog.Request(symbol, num1Str!, num2Str!);
                 ServerLog.Response(result);
 
@@ -97,7 +94,6 @@ namespace Calcultor_API.Controllers
             }
         }
 
-        // ===== Health endpoint (익명 허용) =====
         // GET /calc/health
         [AllowAnonymous]
         [HttpGet("health")]
@@ -106,16 +102,14 @@ namespace Calcultor_API.Controllers
             return Ok(new { status = "ok" });
         }
 
-        // ===== 단일 엔드포인트 (권장): op/num1/num2 모두 JSON 바디로 =====
-        // POST /calc/compute
-        // Body: { "op": "+", "num1": "5", "num2": "6" }
+        // POST(/calc/compute) 방식, REST API에서는 POST 방식이 일반적이라고 하여 POST로 구현을 해 봤습니다.
+
         [HttpPost("compute")]
         public IActionResult Compute([FromBody] CalcRequest? req)
         {
             if (req is null)
                 return BadRequest(new { error = "Request body is required." });
 
-            // 유니코드 마이너스(−)가 섞일 수 있어 정규화
             var op = (req.Op ?? "").Trim().Replace('−', '-');
 
             if (op is not ("+" or "-" or "*" or "/"))

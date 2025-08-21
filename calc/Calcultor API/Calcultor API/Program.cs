@@ -9,7 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-ServerLog.Init("logs/server_log.txt", true);
+ServerLog.Init("logs/server_log.txt", true);        //로그 초기화
 
 var app = builder.Build();      
 

@@ -163,7 +163,6 @@ namespace Calculator.Utils
             });
         }
 
-        // Optional: call on exit to close file handle cleanly
         public static void Close()
         {
             lock (_lock)
