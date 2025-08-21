@@ -44,7 +44,7 @@ namespace CalculatorApp.ViewModel
 
         private HttpClient _httpClient;
 
-        private string _apiBaseUrl = "https://localhost:5001/calc/";
+        private string _apiBaseUrl = "https://localhost:5001/calc/";           
         private string _token = "secret_token_123";
 
         private string? _recordText;
@@ -73,15 +73,13 @@ namespace CalculatorApp.ViewModel
 
         private static readonly string[] Operators = { "+", "-", "×", "÷" };
 
-        public ICommand ButtonClickCommand { get; private set; }
+        public ICommand ButtonClickCommand { get; private set; }        // 바인딩을 통한 버튼 클릭 명령
 
-        public CalculatorViewModel()
+        public CalculatorViewModel()        
         {
             XmlConfigurator.Configure();
-
-            // create initial HttpClient (allow self-signed in DEBUG)
 #if DEBUG
-            var handler = new HttpClientHandler
+            var handler = new HttpClientHandler         // 서버 인증 (하지만 이 코드에선 SSL 인증 무시)
             {
                 ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
             };
@@ -91,24 +89,20 @@ namespace CalculatorApp.ViewModel
 #endif
             _httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-            ButtonClickCommand = new RelayCommand(ExecuteButtonClick, (param) => IsServerOnline);
+            ButtonClickCommand = new RelayCommand(ExecuteButtonClick, (param) => IsServerOnline);       // 서버 연결 상태에 따른 버튼 활성화
             ResultText = "0";
             RecordText = "";
             ResetAll();
 
-            // Apply initial base address & token
             TryApplyBaseAddressToHttpClient();
 
-            // Subscribe to settings saved event (SettingsViewModel must expose this)
             SettingsViewModel.SettingsSaved += OnSettingsSaved;
 
-            // Start initial check
             Task.Run(() => InitializeViewModelAsync());
         }
 
-        private void OnSettingsSaved(object? sender, SettingsSavedEventArgs e)
+        private void OnSettingsSaved(object? sender, SettingsSavedEventArgs e)          // 서버와 연결 설정이 변경되었을 때 호출
         {
-            // If token not supplied, keep existing token
             UpdateSettings(e.BaseUrl, string.IsNullOrWhiteSpace(e.Token) ? null : e.Token);
         }
 
@@ -116,34 +110,22 @@ namespace CalculatorApp.ViewModel
         /// 반영: newBaseUrl은 절대(끝에 슬래시 포함) 또는 상대적으로 들어오면 정규화하여 사용.
         /// newToken이 null이면 기존 _token 유지; 빈 문자열이면 토큰 제거.
         /// </summary>
-        public void UpdateSettings(string newBaseUrl, string? newToken)
+        public void UpdateSettings(string newBaseUrl, string? newToken)     // 서버 주소와 토큰을 업데이트
         {
             if (string.IsNullOrWhiteSpace(newBaseUrl)) return;
 
-            // Ensure trailing slash
             if (!newBaseUrl.EndsWith("/")) newBaseUrl += "/";
 
             _apiBaseUrl = newBaseUrl;
 
-            // token logic: null -> keep existing, "" -> clear, otherwise set
-            if (newToken is null)
-            {
-                // keep existing _token
-            }
-            else
-            {
-                _token = newToken;
-            }
+            if (newToken is null) { }
+            else { _token = newToken; }
 
-            // Recreate HttpClient safely so BaseAddress can be changed (preserve debug handler behavior)
-            try
-            {
-                _httpClient?.Dispose();
-            }
-            catch { /* ignore */ }
+            try { _httpClient?.Dispose(); }
+            catch { }
 
 #if DEBUG
-            var handler = new HttpClientHandler
+            var handler = new HttpClientHandler      
             {
                 ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
             };
@@ -163,7 +145,6 @@ namespace CalculatorApp.ViewModel
                 _httpClient.BaseAddress = new Uri("https://localhost:5001/calc/");
             }
 
-            // Apply or clear Authorization header
             if (!string.IsNullOrWhiteSpace(_token))
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
             else
@@ -175,9 +156,11 @@ namespace CalculatorApp.ViewModel
 
             try { _retryCts.Cancel(); } catch { }
             try { _retryCts.Dispose(); } catch { }
-            _retryCts = new CancellationTokenSource();
 
-            _ = Task.Run(async () =>
+            _retryCts = new CancellationTokenSource();          // 재시도 토큰 초기화
+
+            // 서버 연결 상태 초기화
+            _ = Task.Run(async () =>        
             {
                 var ok = await CheckServerConnectionAsync();
                 Application.Current?.Dispatcher?.Invoke(() =>
@@ -197,7 +180,7 @@ namespace CalculatorApp.ViewModel
             });
         }
 
-        private void TryApplyBaseAddressToHttpClient()
+        private void TryApplyBaseAddressToHttpClient()      // 초기화 시점에 기본 주소 설정
         {
             try
             {
@@ -220,9 +203,9 @@ namespace CalculatorApp.ViewModel
 #endif
         }
 
-        private static string EnsureTrailingSlash(string url) => string.IsNullOrEmpty(url) ? url : (url.EndsWith("/") ? url : url + "/");
+        private static string EnsureTrailingSlash(string url) => string.IsNullOrEmpty(url) ? url : (url.EndsWith("/") ? url : url + "/");       // URL 형식 맞추기
 
-        private async Task InitializeViewModelAsync()
+        private async Task InitializeViewModelAsync()           // 첫 실행 시, 서버 연결 확인
         {
             IsServerOnline = false;
             ResultText = "서버 연결 중...";
@@ -244,10 +227,10 @@ namespace CalculatorApp.ViewModel
             }
         }
 
-        private void StartConnectionRetryLoop()
+        private void StartConnectionRetryLoop()         // 서버 연결 재시도
         {
             if (_isRetryingConnection) return;
-            _isRetryingConnection = true;           // 재시도
+            _isRetryingConnection = true;           
 
             Task.Run(async () =>
             {
@@ -278,14 +261,15 @@ namespace CalculatorApp.ViewModel
             }, _retryCts.Token);
         }
 
-        private async Task<bool> CheckServerConnectionAsync()
+        private async Task<bool> CheckServerConnectionAsync()       // 서버 연결 상태 확인
         {
             string baseAddr = _httpClient?.BaseAddress?.ToString() ?? _apiBaseUrl;
             baseAddr = EnsureTrailingSlash(baseAddr);
 
 #if DEBUG
             Debug.WriteLine($"[HealthCheck] BaseAddress={baseAddr}");
-#endif
+
+#endif      // baseAddr가 비어있으면 연결 실패
             try
             {
                 var healthUri = new Uri(new Uri(baseAddr), "health");
@@ -309,6 +293,7 @@ namespace CalculatorApp.ViewModel
 #endif
             }
 
+            // baseAddr가 HTTPS가 아니거나, baseAddr가 비어있으면 HTTPS로 시도
             if (Uri.TryCreate(baseAddr, UriKind.Absolute, out var baseUri) && baseUri.Scheme != Uri.UriSchemeHttps)
             {
                 var httpsBuilder = new UriBuilder(baseUri) { Scheme = Uri.UriSchemeHttps, Port = baseUri.Port };
@@ -347,10 +332,11 @@ namespace CalculatorApp.ViewModel
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-        private void ResetAll()
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));          
+
+        private void ResetAll()         // 모든 상태를 초기화
         {
             _accumulator = null;
             _pendingOp = null;
@@ -364,7 +350,7 @@ namespace CalculatorApp.ViewModel
             ResultText = "0";
         }
 
-        private void ResetStateButKeepDisplay(bool keepRecord)
+        private void ResetStateButKeepDisplay(bool keepRecord)          // 상태는 초기화하되, 화면 표시 유지
         {
             _accumulator = null;
             _pendingOp = null;
@@ -377,13 +363,11 @@ namespace CalculatorApp.ViewModel
 
             if (!keepRecord)
             {
-                // 호출부에 따라 ResultText를 건드릴 수도 있지만,
-                // 기존 코드 흐름과 호환되도록 RecordText만 기본으로 지운다.
                 RecordText = "";
             }
         }
 
-        private void UpdateRecordForTyping()
+        private void UpdateRecordForTyping()            // 현재 계산 기록 업데이트
         {
             if (_accumulator != null && _pendingOpDisplay != null)
                 RecordText = $"{_accumulator} {_pendingOpDisplay} {ResultText}";
@@ -391,7 +375,7 @@ namespace CalculatorApp.ViewModel
                 RecordText = ResultText;
         }
 
-        private async void ExecuteButtonClick(object parameter)
+        private async void ExecuteButtonClick(object parameter)         // 계산기 기능 처리
         {
             var value = parameter?.ToString();
             if (string.IsNullOrWhiteSpace(value)) return;
@@ -447,7 +431,7 @@ namespace CalculatorApp.ViewModel
             HandleNumberInput(value);
         }
 
-        private void HandleNumberInput(string value)
+        private void HandleNumberInput(string value)            // 숫자 입력 처리
         {
             var current = ResultText;
             if (_justEvaluated)
@@ -489,7 +473,7 @@ namespace CalculatorApp.ViewModel
             UpdateRecordForTyping();
         }
 
-        private async Task HandleOperatorAsync(string opBtn)
+        private async Task HandleOperatorAsync(string opBtn)            // 연산자 처리
         {
             var current = ResultText;
             if (_accumulator == null || _justEvaluated)
@@ -531,7 +515,7 @@ namespace CalculatorApp.ViewModel
             RecordText = $"{_accumulator} {_pendingOpDisplay}";
         }
 
-        private async Task HandleEqualsAsync()
+        private async Task HandleEqualsAsync()          // = 연산 처리
         {
             var current = ResultText;
             if (_accumulator != null && _pendingOp != null && IsNumber(current))
@@ -540,7 +524,7 @@ namespace CalculatorApp.ViewModel
                 var opDisp = _pendingOpDisplay ?? _pendingOp;
                 var rightDisp = current;
 
-                ClientLog.Request(NormalizeOperator(opDisp), leftDisp, rightDisp);
+                Log.Request(NormalizeOperator(opDisp), leftDisp, rightDisp);
 
                 var r = await ComputeBinaryAsync(_accumulator!, current, _pendingOp!);
                 if (r.success)
@@ -568,7 +552,7 @@ namespace CalculatorApp.ViewModel
 
             if (_accumulator != null && _lastOperand != null && _lastOperator != null && _pendingOp == null)
             {
-                ClientLog.Request(_lastOperator, _accumulator, _lastOperand);
+                Log.Request(_lastOperator, _accumulator, _lastOperand);         // Log(요청) 기록
 
                 var r = await ComputeBinaryAsync(_accumulator!, _lastOperand!, _lastOperator!);
                 if (r.success)
@@ -585,7 +569,7 @@ namespace CalculatorApp.ViewModel
             }
         }
 
-        private void ApplyPercent()
+        private void ApplyPercent()         // % 연산 처리
         {
             if (!double.TryParse(ResultText, NumberStyles.Float, CultureInfo.CurrentCulture, out var right))
                 return;
@@ -637,9 +621,7 @@ namespace CalculatorApp.ViewModel
         private static bool IsNumber(string s) => double.TryParse(s, NumberStyles.Float, CultureInfo.CurrentCulture, out _);
 
         public async Task<(bool success, string? result, string? error)>
-        ComputeBinaryAsync(string num1,
-                           string num2,
-                           string opBtn)
+        ComputeBinaryAsync(string num1, string num2, string opBtn)            // 서버에 계산 요청을 보내고 결과 반환
         {
             var op = NormalizeOperator(opBtn);
 
@@ -650,14 +632,13 @@ namespace CalculatorApp.ViewModel
                 Num2 = ToInvariant(num2)
             };
 
-            var json = JsonConvert.SerializeObject(reqObj);
+            var json = JsonConvert.SerializeObject(reqObj);         // JSON 직렬화
 
             using var httpReq = new HttpRequestMessage(HttpMethod.Post, "compute")
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
 
-            // Attach current token if present
             if (!string.IsNullOrWhiteSpace(_token))
                 httpReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
@@ -667,7 +648,7 @@ namespace CalculatorApp.ViewModel
                 var body = await resp.Content.ReadAsStringAsync();
                 var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
 
-                ClientLog.Meta(new Uri(_httpClient.BaseAddress!, "compute").ToString(), (int)resp.StatusCode, contentType);
+                Log.Meta(new Uri(_httpClient.BaseAddress!, "compute").ToString(), (int)resp.StatusCode, contentType);
 
 #if DEBUG
                 var baseAddr = _httpClient?.BaseAddress?.ToString() ?? _apiBaseUrl;
@@ -678,22 +659,22 @@ namespace CalculatorApp.ViewModel
                 Debug.WriteLine($"Response Body: {body}");
 #endif
 
-                if (resp.IsSuccessStatusCode)
+                if (resp.IsSuccessStatusCode)           // 성공 응답 처리
                 {
                     var resObj = JsonConvert.DeserializeObject<CalculationResponse>(body);
                     var resStr = resObj?.Result;
                     if (resStr != null &&
                         double.TryParse(resStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var num))
                     {
-                        ClientLog.Response(resStr);
+                        Log.Response(resStr);           // Log(응답) 기록
                         return (true, num.ToString("G15", CultureInfo.InvariantCulture), null);
                     }
-                    ClientLog.Error("Unexpected response payload", (int)resp.StatusCode);
+                    Log.Error("Unexpected response payload", (int)resp.StatusCode);
                     return (false, null, "Unexpected response");
                 }
-                else if (resp.StatusCode == HttpStatusCode.Unauthorized)
+                else if (resp.StatusCode == HttpStatusCode.Unauthorized)        // 401 인증 실패
                 {
-                    ClientLog.Error("Unauthorized", (int)resp.StatusCode);
+                    Log.Error("Unauthorized", (int)resp.StatusCode);
                     // Authorization missing or incorrect
                     Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -702,9 +683,9 @@ namespace CalculatorApp.ViewModel
                     });
                     return (false, null, "인증 실패");
                 }
-                else if (resp.StatusCode >= HttpStatusCode.InternalServerError) // 500 이상
+                else if (resp.StatusCode >= HttpStatusCode.InternalServerError)         // 500 이상 서버 오류
                 {
-                    ClientLog.Error($"Server error {(int)resp.StatusCode}", (int)resp.StatusCode);
+                    Log.Error($"Server error {(int)resp.StatusCode}", (int)resp.StatusCode);
                     var errorMsg = "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
                     log.Error($"서버 오류 발생 (Code: {(int)resp.StatusCode}). Request: {json}, Response: {body}");
                     Application.Current.Dispatcher.Invoke(() =>
@@ -717,11 +698,11 @@ namespace CalculatorApp.ViewModel
                 {
                     var resObj = JsonConvert.DeserializeObject<CalculationResponse>(body);
                     var errMsg = !string.IsNullOrWhiteSpace(resObj?.Error) ? resObj!.Error : $"HTTP {(int)resp.StatusCode}";
-                    ClientLog.Error(errMsg, (int)resp.StatusCode);
+                    Log.Error(errMsg, (int)resp.StatusCode);
                     return (false, null, errMsg);
                 }
             }
-            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
+            catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)       // 그 외 오류 로직 
             {
                 IsServerOnline = false;
                 ShowError("연결 오류");
@@ -757,7 +738,6 @@ namespace CalculatorApp.ViewModel
             return Array.Exists(Operators, op => op == value);
         }
 
-        // Dispose for cleanup
         public void Dispose()
         {
             try { SettingsViewModel.SettingsSaved -= OnSettingsSaved; } catch { }
@@ -767,8 +747,7 @@ namespace CalculatorApp.ViewModel
         }
     }
 
-    // RelayCommand (unchanged)
-    public class RelayCommand : ICommand
+    public class RelayCommand : ICommand            // Command 부분 구현
     {
         private readonly Action<object?> _execute;
         private readonly Func<object?, bool>? _canExecute;
@@ -785,7 +764,7 @@ namespace CalculatorApp.ViewModel
             _canExecute = canExecute;
         }
 
-        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
+        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);    
         public void Execute(object? parameter) => _execute(parameter);
     }
 }

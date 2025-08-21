@@ -17,21 +17,21 @@ namespace CalculatorApp.ViewModel
         public static event EventHandler<SettingsSavedEventArgs>? SettingsSaved;
 
         private string _serverAddress = "https://localhost";
-        public string ServerAddress
+        public string ServerAddress     //  서버 주소
         {
             get => _serverAddress;
             set { _serverAddress = value; OnPropertyChanged(); }
         }
 
         private string _serverPort = "5001";
-        public string ServerPort
+        public string ServerPort        //  서버 포트   
         {
             get => _serverPort;
             set { _serverPort = value; OnPropertyChanged(); }
         }
 
         private string _token = string.Empty;
-        public string Token
+        public string Token          //  API 토큰
         {
             get => _token;
             set { _token = value; OnPropertyChanged(); }
@@ -42,9 +42,9 @@ namespace CalculatorApp.ViewModel
 
         private const string AppFolderName = "CalculatorApp";
 
-        public SettingsViewModel()
+        public SettingsViewModel()         
         {
-            var data = ReadSettingsFromFile();
+            var data = ReadSettingsFromFile();          //  파일에서 설정 읽기
             if (data != null)
             {
                 ServerAddress = data.ServerAddress ?? ServerAddress;
@@ -58,11 +58,10 @@ namespace CalculatorApp.ViewModel
 
         #region Save / Test
 
-        private async Task SaveAsync(object? parameter)
+        private async Task SaveAsync(object? parameter)         //  설정 저장
         {
             try
             {
-                // 포트 유효성 검사
                 if (!int.TryParse(ServerPort, out var port) || port < 1 || port > 65535)
                 {
                     MessageBox.Show("포트는 1 ~ 65535 사이의 정수여야 합니다.", "입력 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -75,11 +74,9 @@ namespace CalculatorApp.ViewModel
                     return;
                 }
 
-                // 입력 정리: 공백 제거, 끝의 콜론/슬래시 제거
                 var raw = ServerAddress.Trim();
                 raw = raw.TrimEnd('/', ':');
 
-                // UriBuilder로 안전하게 조합 (사용자가 scheme 포함했으면 그 scheme 사용, 아니면 https 기본)
                 Uri baseUri;
                 if (Uri.TryCreate(raw, UriKind.Absolute, out var parsed) &&
                     (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps))
@@ -94,10 +91,8 @@ namespace CalculatorApp.ViewModel
                 var finalBase = baseUri.AbsoluteUri;
                 if (!finalBase.EndsWith("/")) finalBase += "/";
 
-                // 파일 경로 (LocalApplicationData 통일)
                 var path = GetSettingsPath();
 
-                // JSON에 BaseUrl + ServerAddress + ServerPort + Token 모두 기록 (하위호환성 및 가독성)
                 string serverAddrForJson;
                 int serverPortForJson;
                 if (Uri.TryCreate(finalBase, UriKind.Absolute, out var baseUri2))
@@ -119,12 +114,11 @@ namespace CalculatorApp.ViewModel
                     ["Token"] = Token ?? ""
                 };
 
-                var root = new JObject(new JProperty("ApiSettings", apiSettings));
+                var root = new JObject(new JProperty("ApiSettings", apiSettings));          // JSON 형식으로 저장
 
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);           
                 File.WriteAllText(path, root.ToString(Newtonsoft.Json.Formatting.Indented));
 
-                // 이벤트 발행하여 CalculatorViewModel 등에 즉시 반영하게 함
                 SettingsSaved?.Invoke(this, new SettingsSavedEventArgs { BaseUrl = finalBase, Token = Token });
 
                 MessageBox.Show("설정이 저장되었습니다.", "저장 완료", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -137,7 +131,7 @@ namespace CalculatorApp.ViewModel
             }
         }
 
-        private async Task TestConnectionAsync()
+        private async Task TestConnectionAsync()            //  서버 연결 테스트
         {
             var baseUrl = BuildBaseUrlForTest(ServerAddress, ServerPort);
             try

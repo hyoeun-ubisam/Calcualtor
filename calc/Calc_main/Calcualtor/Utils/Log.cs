@@ -13,8 +13,8 @@ namespace Calculator.Utils
         public static bool WithTimestamp { get; set; } = true;
 
         static readonly object _lock = new();
-        static TextWriter? _file;
-        public static ILog? log { get; set; } = LogManager.GetLogger(typeof(Log));
+        static TextWriter? _file; 
+        public static ILog? log { get; set; } = LogManager.GetLogger(typeof(Log));      //log4net을 사용할 때는 ILog 인터페이스를 통해 로그를 기록!
 
 
         public static bool InitFile(string? filePath = null, bool append = true)
@@ -31,14 +31,12 @@ namespace Calculator.Utils
 
                     string? tryPath = filePath;
 
-                    // if no path provided, pick LocalApplicationData
                     if (string.IsNullOrWhiteSpace(tryPath))
                     {
                         tryPath = GetDefaultLogPath();
                         Debug.WriteLine($"[Log] InitFile: no path provided, using default: {tryPath}");
                     }
 
-                    // Ensure folder exists (if possible). If Path.GetDirectoryName returns null, fallback.
                     var dir = Path.GetDirectoryName(tryPath);
                     if (string.IsNullOrWhiteSpace(dir))
                     {
@@ -49,7 +47,6 @@ namespace Calculator.Utils
 
                     Directory.CreateDirectory(dir!);
 
-                    // Try to open file
                     _file = new StreamWriter(tryPath!, append, Encoding.UTF8) { AutoFlush = true };
                     Debug.WriteLine($"[Log] InitFile: log file opened at '{tryPath}'");
                     return true;
@@ -58,7 +55,6 @@ namespace Calculator.Utils
                 {
                     Debug.WriteLine("[Log] InitFile failed: " + ex.ToString());
 
-                    // Try fallback to LocalApplicationData
                     try
                     {
                         var fallback = GetDefaultLogPath();
@@ -112,7 +108,7 @@ namespace Calculator.Utils
                     else
                     {
                         Debug.WriteLine("[Log] _file is null, skipping write.");
-                    }
+                    }                   
                     log?.Info(json);
                 }
                 catch (Exception ex)
@@ -126,7 +122,7 @@ namespace Calculator.Utils
         {
             CalJson(new
             {
-                type = "request",
+                type = "요청",
                 timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                 op,
                 num1,
@@ -138,7 +134,7 @@ namespace Calculator.Utils
         {
             CalJson(new
             {
-                type = "response",
+                type = "응답",
                 timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                 result
             });
@@ -148,7 +144,7 @@ namespace Calculator.Utils
         {
             CalJson(new
             {
-                type = "error",
+                type = "에러",
                 timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                 error,
                 status

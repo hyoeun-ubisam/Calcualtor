@@ -2,6 +2,7 @@
 
 namespace Calculator.Models
 {
+    // 설정 데이터를 저장 및 관리
     public class SettingsData
     {
         public string ServerAddress { get; set; } = "https://localhost";
@@ -29,6 +30,7 @@ namespace Calculator.Models
         private static string EnsureTrailingSlash(string url) => url.EndsWith("/") ? url : url + "/";
     }
 
+    // 설정을 수정하고 저장하면, 발생하는 이벤트
     public class SettingsSavedEventArgs : EventArgs
     {
         public string BaseUrl { get; init; } = "";
